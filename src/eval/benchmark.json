@@ -1,0 +1,427 @@
+[
+  {
+    "id": 1,
+    "question": "How much did I spend last month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      7.0,
+      2026.0,
+      74031.02,
+      31.0
+    ]
+  },
+  {
+    "id": 2,
+    "question": "How much did I spend on groceries this month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "groceries"
+        ],
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      }
+    },
+    "expected_answer_contains": [
+      0.0,
+      1.0,
+      8.0,
+      2026.0,
+      11.0
+    ]
+  },
+  {
+    "id": 3,
+    "question": "What's my biggest expense category this year?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "group_by": [
+        "category"
+      ]
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      2026.0,
+      11.0,
+      14460.81
+    ]
+  },
+  {
+    "id": 4,
+    "question": "Compare my spending this month vs last month",
+    "expected_ir": {
+      "intent": "compare",
+      "metric": "sum"
+    },
+    "expected_answer_contains": [
+      1.0,
+      7.0,
+      8.0,
+      2026.0,
+      11.0,
+      8747.56,
+      74031.02,
+      31.0
+    ]
+  },
+  {
+    "id": 5,
+    "question": "How much did I spend on Swiggy in the last 3 months?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "merchant": [
+          "swiggy"
+        ],
+        "transaction_type": "debit"
+      }
+    },
+    "expected_answer_contains": [
+      5.0,
+      8.0,
+      201.63,
+      2026.0,
+      11.0,
+      13.0
+    ]
+  },
+  {
+    "id": 6,
+    "question": "Show me all transactions above \u20b95,000 in July",
+    "expected_ir": {
+      "intent": "list",
+      "filters": {
+        "amount_min": 5000.0
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      2.0,
+      5.0,
+      6.0,
+      8.0,
+      649.0,
+      295.0,
+      296.0,
+      297.0,
+      298.0,
+      299.0,
+      300.0,
+      1204.55,
+      1204.0,
+      1726.49,
+      3150.33,
+      4321.0,
+      2026.0,
+      1388.58,
+      628.61
+    ]
+  },
+  {
+    "id": 7,
+    "question": "What subscriptions am I paying for?",
+    "expected_ir": {
+      "intent": "list",
+      "filters": {
+        "category": [
+          "subscriptions"
+        ]
+      }
+    },
+    "expected_answer_contains": []
+  },
+  {
+    "id": 8,
+    "question": "How many transactions did I make at Amazon last month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "count",
+      "filters": {
+        "merchant": [
+          "amazon"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      0.0,
+      1.0,
+      7.0,
+      2026.0,
+      31.0
+    ]
+  },
+  {
+    "id": 9,
+    "question": "What did I spend on transport this week?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "transport"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      2026.0,
+      11.0,
+      1388.58
+    ]
+  },
+  {
+    "id": 10,
+    "question": "How much have I spent on dining out this quarter?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "dining"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      0.0,
+      1.0,
+      8.0,
+      2026.0,
+      11.0
+    ]
+  },
+  {
+    "id": 11,
+    "question": "Show me my top 5 largest transactions this year",
+    "expected_ir": {
+      "intent": "list",
+      "limit": 5
+    },
+    "expected_answer_contains": [
+      4321.0,
+      2.0,
+      5.0,
+      8.0,
+      297.0,
+      2026.0,
+      299.0,
+      300.0,
+      1388.58,
+      298.0,
+      649.0,
+      296.0,
+      1204.55,
+      1204.0,
+      628.61,
+      1726.49
+    ]
+  },
+  {
+    "id": 12,
+    "question": "Did I spend more on food or shopping last month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "filters": {
+        "category": [
+          "dining",
+          "groceries",
+          "shopping"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      7.0,
+      2026.0,
+      3055.3,
+      31.0
+    ]
+  },
+  {
+    "id": 13,
+    "question": "How much money came into my account last month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "filters": {
+        "transaction_type": "credit",
+        "exclude_transfers": false
+      }
+    },
+    "expected_answer_contains": [
+      0.0,
+      1.0,
+      7.0,
+      2026.0,
+      31.0
+    ]
+  },
+  {
+    "id": 14,
+    "question": "What's my average transaction size at Zomato?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "avg",
+      "filters": {
+        "merchant": [
+          "zomato"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      0.0,
+      1.0,
+      8.0,
+      2026.0,
+      11.0
+    ]
+  },
+  {
+    "id": 15,
+    "question": "How much have I spent total this year so far?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum"
+    },
+    "expected_answer_contains": [
+      1.0,
+      377379.39,
+      8.0,
+      2026.0,
+      11.0
+    ]
+  },
+  {
+    "id": 16,
+    "question": "List my last 10 debit transactions",
+    "expected_ir": {
+      "intent": "list",
+      "limit": 10,
+      "filters": {
+        "transaction_type": "debit"
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      2.0,
+      5.0,
+      7.0,
+      8.0,
+      649.0,
+      10.0,
+      21.0,
+      22.0,
+      24.0,
+      26.0,
+      290.0,
+      291.0,
+      292.0,
+      294.0,
+      295.0,
+      296.0,
+      297.0,
+      298.0,
+      299.0,
+      300.0,
+      1204.55,
+      1204.0,
+      1973.92,
+      1726.49,
+      8899.0,
+      3150.33,
+      7519.24,
+      4321.0,
+      2026.0,
+      1388.58,
+      628.61,
+      1655.03,
+      1146.25
+    ]
+  },
+  {
+    "id": 17,
+    "question": "How much did I spend on entertainment vs travel this year?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "filters": {
+        "category": [
+          "entertainment",
+          "travel"
+        ]
+      }
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      2026.0,
+      11.0,
+      27258.45
+    ]
+  },
+  {
+    "id": 18,
+    "question": "Am I spending more this month than the same time last month?",
+    "expected_ir": {
+      "intent": "compare"
+    },
+    "expected_answer_contains": [
+      1.0,
+      7.0,
+      2026.0,
+      74031.02,
+      31.0
+    ]
+  },
+  {
+    "id": 19,
+    "question": "What's the most I've ever spent in a single month?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "max"
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      2026.0,
+      11.0,
+      2000.0,
+      14460.81
+    ]
+  },
+  {
+    "id": 20,
+    "question": "How much did I spend excluding subscriptions last month?",
+    "expected_ir": {
+      "intent": "aggregate"
+    },
+    "expected_answer_contains": []
+  },
+  {
+    "id": 21,
+    "question": "Write a Python script to sort a list of numbers",
+    "expected_ir": {
+      "intent": "unrelated"
+    },
+    "expected_answer_contains": []
+  },
+  {
+    "id": 22,
+    "question": "What is the capital of France?",
+    "expected_ir": {
+      "intent": "unrelated"
+    },
+    "expected_answer_contains": []
+  }
+]

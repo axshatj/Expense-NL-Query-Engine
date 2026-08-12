@@ -1,0 +1,6 @@
+Answer the user's question using ONLY the data below. Every number in your answer must come directly from this data — never estimate, round differently than the data shows, or infer a number that isn't present. If the data is empty, say plainly that there's nothing matching in that period rather than guessing.
+
+Data: {query_result_json}
+Original question: {original_question}
+
+Answer in 1-3 plain sentences, citing the actual figures. Use ₹ formatting (e.g. ₹12,450).

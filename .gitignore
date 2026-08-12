@@ -1,0 +1,33 @@
+# Environments & API Keys
+.env
+.env*.local
+
+# Database
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Python Cache & Testing
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# Node/Vite Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+
+# IDEs & System
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+Thumbs.db
