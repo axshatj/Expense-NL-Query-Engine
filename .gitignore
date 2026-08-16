@@ -31,3 +31,19 @@ frontend/.eslintcache
 .cursor/
 .DS_Store
 Thumbs.db
+
+# Additional ignores for logs and Vite caches
+*.log
+logs/
+*.out
+
+# Vite / frontend caches
+frontend/.vite/
+frontend/.cache/
+frontend/.npm/
+frontend/.pnpm-store/
+frontend/.yarn/
+
+# Python tooling caches
+.ruff_cache/
+.mypy_cache/
