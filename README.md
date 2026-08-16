@@ -1,65 +1,340 @@
-# Expense NL Query Engine
-
-An expense tracker built from zero, where the payoff feature is a natural-language interface over your own transaction data. A user asks something like *"how much did I spend on dining last month?"* or *"what subscriptions can I cancel?"* in plain English, and gets back an answer grounded in real transactions — not an LLM guess.
-
-This is a **full-stack project**: nothing is assumed to exist already. That means real ingestion work (SMS parsing, AA integration) comes before the AI layer, not after — and that ingestion work is exactly the kind of "real engineering underneath the AI" that makes this project credible rather than a thin API wrapper. Don't skip ahead to the LLM parts; the data layer is half the story an interviewer will actually care about.
-
-## Why this design (read before writing any code)
-
-Four decisions shape everything else here, and they're the ones worth being able to defend in an interview:
-
-1. **Ingestion is scoped deliberately small.** A solo, from-scratch build doesn't need to replicate a production fintech pipeline. SMS parsing covers a handful of common bank/UPI sender formats (not every bank in India), and AA integration uses one sandbox FIU flow, not a multi-provider abstraction. Small and working beats broad and half-finished — see `ingestion.md` for exactly how small.
-
-2. **The LLM never generates SQL directly.** It generates a small, fixed JSON object (an "intermediate representation," or IR) describing the query — intent, date range, category, merchant, metric. Plain code then turns that IR into a parameterized query. This is safer (no injection surface, no risk of a malformed or destructive query), and — just as importantly — it's *testable*: you can assert on IR fields directly instead of only on final prose.
-
-3. **The LLM never invents numbers.** The answer-generation step is only ever shown the actual rows/aggregate that came back from the database, is instructed to use only those, and a cheap post-hoc check re-extracts every number in the generated answer and confirms it appears in the retrieved data. If it doesn't, the answer is rejected and rebuilt from a template instead. This single guardrail is what makes the project trustworthy enough to actually use with real money data.
-
-4. **There's an eval set from early on, not bolted on at the end.** A ~20-question benchmark with known-correct answers (computed by running the equivalent query directly against the DB) is what turns "I built an AI expense assistant" into "I built an AI expense assistant that's 90%+ accurate on a 20-query benchmark" — the second one is the resume line and the interview story.
-
-## Architecture at a glance
-
+Expense NL Query Engine
+A full-stack expense tracker built from scratch, with a natural-language interface over real transaction data.
+Ask questions like:
+> "How much did I spend on dining last month?"
+or:
+> "What subscriptions can I cancel?"
+The system converts the user's question into a structured query, executes it against actual transaction data, and generates an answer grounded in the retrieved results — not an LLM guess.
+The project deliberately focuses on the engineering underneath the AI: ingestion, normalization, deterministic query execution, evaluation, and hallucination prevention.
+---
+Why This Design?
+Four architectural decisions shape the project.
+1. Deliberately Small Ingestion Layer
+A from-scratch solo project doesn't need to replicate a production fintech ingestion pipeline.
+The initial scope covers:
+Common Indian bank/UPI SMS formats
+SMS parsing and normalization
+Synthetic/sample transaction data for early development
+One sandbox-based Account Aggregator (AA) / Setu flow
+The goal is small and working rather than broad and half-finished.
+See `references/ingestion.md` for the detailed scope.
+---
+2. The LLM Never Generates SQL
+The LLM does not directly generate SQL.
+Instead, it produces a small, fixed JSON Intermediate Representation (IR) describing the user's query:
+```json
+{
+  "intent": "spending_summary",
+  "date_range": {
+    "start": "2026-07-01",
+    "end": "2026-07-31"
+  },
+  "category": "dining",
+  "merchant": null,
+  "metric": "total_spend"
+}
 ```
-Raw SMS inbox export ─┐
-                       ├─► [A] Parser → normalizer → transactions table   (see ingestion.md)
-AA / Setu sandbox ─────┘
-                                          │
-                                          ▼
-                       User question (NL)
-                                          │
-                                          ▼
-                       [1] NL → structured query IR      (LLM call #1 — see nl-query-and-grounding.md)
-                                          │
-                                          ▼
-                       [2] IR → parameterized DB query   (plain code, no LLM — see architecture-and-schema.md)
-                                          │
-                                          ▼
-                       [3] Query result (rows / aggregate)
-                                          │
-                                          ▼
-                       [4] Result → grounded NL answer   (LLM call #2 + numeric verification — see nl-query-and-grounding.md)
-                                          │
-                                          ▼
-                       Answer shown to user
+Normal application code then converts this IR into a parameterized SQL query.
+This provides:
+Protection against SQL injection
+No destructive or malformed queries generated by the LLM
+Deterministic query execution
+Easy unit testing
+Ability to evaluate the LLM independently through the IR
+---
+3. The LLM Never Invents Numbers
+The answer-generation step only receives the actual rows or aggregates returned by the database.
+The model is explicitly instructed to use only those results.
+A post-hoc verification step then extracts numbers from the generated answer and checks whether they exist in the retrieved data.
+If verification fails:
+Reject the generated answer.
+Rebuild the response using a deterministic template.
+This makes the system substantially more trustworthy for real financial data.
+---
+4. Evaluation Is Built In From the Start
+The project includes an evaluation benchmark rather than treating evaluation as an afterthought.
+The initial benchmark contains approximately 20 representative questions with known-correct answers.
+For each question:
+Run the equivalent query directly against the database.
+Store the expected result.
+Run the NL → IR → SQL → answer pipeline.
+Compare the result against the expected answer.
+This turns:
+> "I built an AI expense assistant."
+into something measurable such as:
+> "Built an AI expense assistant achieving 90%+ accuracy on a 20-query benchmark."
+See `references/evaluation.md`.
+---
+Architecture
+```text
+Raw SMS Inbox Export ─┐
+                      │
+                      ▼
+                 ┌──────────┐
+                 │  Parser  │
+                 └────┬─────┘
+                      │
+                      ▼
+                 ┌────────────┐
+                 │ Normalizer │
+                 └─────┬──────┘
+                      │
+                      │
+AA / Setu Sandbox ────┘
+                      │
+                      ▼
+                ┌──────────────┐
+                │ Transactions │
+                │   Database   │
+                └──────┬───────┘
+                       │
+                       │
+                User Question
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ NL → Query IR   │
+              │    LLM Call #1  │
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ IR → SQL        │
+              │ Deterministic   │
+              │ Application Code│
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Query Result    │
+              │ Rows / Aggregate│
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Result → Answer │
+              │    LLM Call #2  │
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Numeric         │
+              │ Verification    │
+              └────────┬────────┘
+                       │
+                       ▼
+                  Final Answer
 ```
+Only two components interact with an LLM:
+Natural language → structured query IR
+Database result → natural language answer
+Everything else remains deterministic.
+---
+Key Components
+A. Data Ingestion
+The ingestion layer converts raw financial data into a normalized transaction format.
+Sources include:
+Bank SMS messages
+UPI transaction SMS
+Account Aggregator / Setu sandbox data
+Synthetic transactions for development
+Pipeline:
+```text
+Raw Data
+   ↓
+Parser
+   ↓
+Transaction Extraction
+   ↓
+Normalization
+   ↓
+Merchant Categorization
+   ↓
+Transactions Table
+```
+See `references/ingestion.md`.
+---
+B. Transaction Database
+The normalized transaction data is stored in a relational database.
+The initial implementation uses SQLite because the project targets a single user's transaction history rather than millions of records.
+The database layer handles:
+Transaction storage
+Merchant normalization
+Category normalization
+Date filtering
+Aggregations
+Query execution
+See `references/architecture-and-schema.md`.
+---
+C. Natural Language Query Engine
+The user can ask questions in natural language:
+```text
+How much did I spend on food last month?
+```
+The LLM converts this into a structured query representation:
+```text
+User Question
+      ↓
+     LLM
+      ↓
+Structured Query IR
+      ↓
+Deterministic SQL
+      ↓
+Database
+```
+The LLM never receives permission to construct arbitrary SQL.
+See `references/nl-query-and-grounding.md`.
+---
+D. Grounded Answer Generation
+After the database query executes, only the retrieved data is passed to the second LLM call.
+For example:
+```text
+Query Result:
 
-Only [1] and [4] touch an LLM. [A] and [2] are deterministic, ordinary code — keep it that way, since that's the part that's cheap to test exhaustively and the part that shows you can engineer, not just prompt.
-
-## Where to look for what
-
-| Need | Go to |
-|---|---|
-| Building SMS parsing and AA/Setu integration from zero, sandbox setup, what to scope out | `references/ingestion.md` |
-| DB schema, merchant/category normalization, connecting ingestion output to the query layer | `references/architecture-and-schema.md` |
-| The structured query IR schema, both prompt templates (with few-shot examples), the anti-hallucination check, ambiguous-date/merchant handling | `references/nl-query-and-grounding.md` |
-| Eval harness design, the 3 metrics, a ready-to-use 20-question starter benchmark | `references/evaluation.md` |
-| Tech stack rationale, week-by-week build order (ingestion included), resume bullet templates, likely interview questions | `references/build-plan-and-resume.md` |
-| Step-by-step implementation tasks in topological dependency order and progress tracker | `references/process-roadmap.md` |
-
-## Assumptions baked into this design
-
-- **Language/stack**: examples use Python + SQLite for concreteness, since that's a low-friction choice for parsing-heavy, single-user projects. Nothing here is Python-specific — the IR schema, prompts, and eval format are all just JSON/SQL/text and port directly to Node or anything else. If the real stack differs, only `build-plan-and-resume.md`'s tooling section needs adjusting.
-- **LLM provider**: prompts are written provider-agnostic (they'd work against the Claude API or an OpenAI-compatible one). No provider-specific features are assumed.
-- **Data source for early development**: real SMS/AA access takes setup time (sandbox approval, real bank SMS history to test against). `ingestion.md` covers building against synthetic/sample data first so the rest of the pipeline isn't blocked waiting on that setup.
-- **Scale**: designed for one person's transaction history (thousands, not millions, of rows) — the point is to keep the middle layer (query execution) plain, fast, boring code rather than needing a vector DB or anything exotic. If that assumption changes, revisit before adding infrastructure.
-
-If any of these turn out to be wrong for the actual build, update this section — it's the fastest way for a future session to get back up to speed on what changed and why.
+Dining: ₹4,250
+Transactions: 18
+Previous Month: ₹3,800
+```
+The model can then generate:
+> You spent ₹4,250 on dining last month across 18 transactions, which is ₹450 more than the previous month.
+The answer is subsequently checked against the retrieved data.
+---
+Tech Stack
+Layer	Technology
+Language	Python
+Database	SQLite
+LLM	Provider-agnostic
+Query Interface	Structured JSON IR
+Data Source	SMS / AA / Setu
+Query Execution	Parameterized SQL
+Evaluation	Custom benchmark
+Frontend	TBD
+Python + SQLite are used initially because they provide a low-friction environment for a single-user, data-heavy application.
+The architecture is not Python-specific. The IR schema, prompts, evaluation format, and SQL layer can be implemented in other stacks such as Node.js.
+---
+Repository Structure
+```text
+.
+├── references/
+│   ├── ingestion.md
+│   ├── architecture-and-schema.md
+│   ├── nl-query-and-grounding.md
+│   ├── evaluation.md
+│   ├── build-plan-and-resume.md
+│   └── process-roadmap.md
+│
+├── src/
+│   ├── ingestion/
+│   ├── database/
+│   ├── query/
+│   ├── llm/
+│   └── evaluation/
+│
+├── tests/
+│
+├── data/
+│
+├── README.md
+└── ...
+```
+The exact implementation structure may evolve as development progresses.
+---
+Development Roadmap
+The project is intentionally built in dependency order.
+Phase 1 — Data Layer
+[ ] Define transaction schema
+[ ] Create SQLite database
+[ ] Build transaction model
+[ ] Create synthetic transaction dataset
+[ ] Implement database operations
+Phase 2 — Ingestion
+[ ] Implement SMS parser
+[ ] Add common bank/UPI formats
+[ ] Normalize transaction fields
+[ ] Implement merchant normalization
+[ ] Implement category mapping
+[ ] Investigate AA / Setu sandbox integration
+Phase 3 — Query Engine
+[ ] Define Query IR schema
+[ ] Implement IR validation
+[ ] Implement IR → SQL conversion
+[ ] Add parameterized queries
+[ ] Test deterministic query execution
+Phase 4 — LLM Layer
+[ ] Implement NL → IR prompt
+[ ] Add few-shot examples
+[ ] Implement date handling
+[ ] Implement merchant handling
+[ ] Handle ambiguous queries
+[ ] Implement result → NL answer generation
+Phase 5 — Grounding & Safety
+[ ] Implement numeric extraction
+[ ] Verify generated numbers against query results
+[ ] Add deterministic fallback responses
+[ ] Test hallucination scenarios
+Phase 6 — Evaluation
+[ ] Create 20-question benchmark
+[ ] Generate ground-truth answers
+[ ] Implement evaluation harness
+[ ] Measure IR accuracy
+[ ] Measure answer accuracy
+[ ] Measure numeric grounding accuracy
+Phase 7 — Frontend
+[ ] Build expense dashboard
+[ ] Add natural-language query interface
+[ ] Display transaction results
+[ ] Display generated explanations
+[ ] Add basic analytics
+---
+Example Queries
+The system is designed to support questions such as:
+```text
+How much did I spend last month?
+```
+```text
+How much did I spend on dining last month?
+```
+```text
+How much did I spend on Swiggy this year?
+```
+```text
+What were my biggest expenses this month?
+```
+```text
+How much did I spend on subscriptions?
+```
+```text
+Which subscriptions can I cancel?
+```
+```text
+How much more did I spend this month compared to last month?
+```
+```text
+Show me all transactions above ₹5,000.
+```
+The supported query space is intentionally constrained rather than allowing arbitrary natural-language questions to become arbitrary SQL.
+---
+Design Principles
+Deterministic where possible
+If ordinary application code can solve a problem reliably, an LLM should not be used.
+LLMs for interpretation, not authority
+The LLM interprets the user's intent and explains retrieved data. It does not control the database.
+Data before AI
+The quality of the AI layer depends on the quality of the underlying transaction data.
+Everything measurable
+The query engine should have deterministic tests, and the LLM components should have an explicit evaluation benchmark.
+Small scope, complete implementation
+A small system that works end-to-end is more valuable than a large system with half-implemented integrations.
+---
+Important Assumptions
+The initial implementation targets one user's transaction history.
+Expected data volume is in the thousands of transactions, not millions.
+SQLite is sufficient for the initial implementation.
+SMS parsing covers a deliberately limited set of common Indian bank/UPI formats.
+AA integration initially targets one sandbox FIU flow.
+Synthetic data is used while real ingestion infrastructure is being developed.
+The LLM provider remains provider-agnostic.
+The LLM never directly generates or executes SQL.
+Financial values shown to users must originate from database results.
+If any of these assumptions change during development, this section should be updated so that future development sessions have an accurate picture of the system.
