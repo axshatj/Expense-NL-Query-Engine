@@ -1,8 +1,3 @@
----
-name: expense-nl-query-engine
-description: Reference for Akshat's end-to-end AI-powered expense tracker with a natural language query engine, built entirely from scratch — SMS parsing, Account Aggregator (Setu Bridge) integration, transaction normalization, and the two-stage LLM query layer on top. Captures the complete architecture, database schema, ingestion design, the NL-to-structured-query-to-grounded-answer pipeline, anti-hallucination guardrails, evaluation harness, and build/resume plan for this specific project. Consult this whenever building, extending, or debugging this project, reasoning about a design tradeoff in it, prepping for an interview where it will come up, or drafting resume or portfolio copy about it — it holds the actual decisions already made so they don't need to be re-derived from scratch each time.
----
-
 # Expense NL Query Engine
 
 An expense tracker built from zero, where the payoff feature is a natural-language interface over your own transaction data. A user asks something like *"how much did I spend on dining last month?"* or *"what subscriptions can I cancel?"* in plain English, and gets back an answer grounded in real transactions — not an LLM guess.
