@@ -16,7 +16,9 @@
       2026.0,
       74031.02,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 2,
@@ -38,7 +40,9 @@
       8.0,
       2026.0,
       11.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 3,
@@ -56,7 +60,9 @@
       2026.0,
       11.0,
       14460.81
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 4,
@@ -74,7 +80,9 @@
       8747.56,
       74031.02,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 5,
@@ -96,7 +104,9 @@
       2026.0,
       11.0,
       13.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 6,
@@ -128,7 +138,9 @@
       2026.0,
       1388.58,
       628.61
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 7,
@@ -141,7 +153,23 @@
         ]
       }
     },
-    "expected_answer_contains": []
+    "expected_answer_contains": [
+      257.0,
+      3.0,
+      5.0,
+      6.0,
+      231.0,
+      649.0,
+      2026.0,
+      238.0,
+      15.0,
+      1204.0,
+      20.0,
+      149.0,
+      119.0
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 8,
@@ -161,7 +189,9 @@
       7.0,
       2026.0,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 9,
@@ -181,7 +211,9 @@
       2026.0,
       11.0,
       1388.58
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 10,
@@ -201,7 +233,9 @@
       8.0,
       2026.0,
       11.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 11,
@@ -227,7 +261,9 @@
       1204.0,
       628.61,
       1726.49
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 12,
@@ -248,7 +284,9 @@
       2026.0,
       3055.3,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 13,
@@ -266,7 +304,9 @@
       7.0,
       2026.0,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 14,
@@ -286,7 +326,9 @@
       8.0,
       2026.0,
       11.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 15,
@@ -301,7 +343,9 @@
       8.0,
       2026.0,
       11.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 16,
@@ -348,7 +392,9 @@
       628.61,
       1655.03,
       1146.25
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 17,
@@ -368,7 +414,9 @@
       2026.0,
       11.0,
       27258.45
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 18,
@@ -382,7 +430,9 @@
       2026.0,
       74031.02,
       31.0
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 19,
@@ -398,7 +448,9 @@
       11.0,
       2000.0,
       14460.81
-    ]
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 20,
@@ -406,7 +458,23 @@
     "expected_ir": {
       "intent": "aggregate"
     },
-    "expected_answer_contains": []
+    "expected_answer_contains": [
+      3.0,
+      8899.0,
+      5.0,
+      7.0,
+      649.0,
+      2026.0,
+      275.0,
+      20.0,
+      149.0,
+      276.0,
+      2355.26,
+      1204.0,
+      287.0
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 21,
@@ -414,7 +482,9 @@
     "expected_ir": {
       "intent": "unrelated"
     },
-    "expected_answer_contains": []
+    "expected_answer_contains": [],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
   },
   {
     "id": 22,
@@ -422,6 +492,140 @@
     "expected_ir": {
       "intent": "unrelated"
     },
-    "expected_answer_contains": []
+    "expected_answer_contains": [],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
+  },
+  {
+    "id": 23,
+    "question": "How much did I spend on perfumes?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "shopping"
+        ],
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      },
+      "is_subscription_query": false,
+      "category_mapping_note": "perfumes mapped to shopping",
+      "unmatched_term": null
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      2026.0,
+      11.0,
+      166510.96,
+      2000.0
+    ],
+    "expected_category_mapping_note": "perfumes mapped to shopping",
+    "expected_unmatched_term": null
+  },
+  {
+    "id": 24,
+    "question": "How much are all my subscription costs?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      },
+      "is_subscription_query": true,
+      "category_mapping_note": null,
+      "unmatched_term": null
+    },
+    "expected_answer_contains": [
+      1.0,
+      18113.86,
+      2.0,
+      28389.76,
+      21349.02,
+      8.0,
+      2026.0,
+      11.0,
+      10.0,
+      5581.76,
+      2000.0
+    ],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": null
+  },
+  {
+    "id": 25,
+    "question": "How much did I spend at the gym?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "healthcare"
+        ],
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      },
+      "is_subscription_query": false,
+      "category_mapping_note": "gym mapped to healthcare",
+      "unmatched_term": null
+    },
+    "expected_answer_contains": [
+      1.0,
+      8.0,
+      41224.09,
+      2026.0,
+      11.0,
+      2000.0
+    ],
+    "expected_category_mapping_note": "gym mapped to healthcare",
+    "expected_unmatched_term": null
+  },
+  {
+    "id": 26,
+    "question": "How much have I spent on my pet's vet bills?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      },
+      "is_subscription_query": false,
+      "category_mapping_note": null,
+      "unmatched_term": "vet bills"
+    },
+    "expected_answer_contains": [],
+    "expected_category_mapping_note": null,
+    "expected_unmatched_term": "vet bills"
+  },
+  {
+    "id": 27,
+    "question": "What have I spent on cabs?",
+    "expected_ir": {
+      "intent": "aggregate",
+      "metric": "sum",
+      "filters": {
+        "category": [
+          "transport"
+        ],
+        "transaction_type": "debit",
+        "exclude_transfers": true
+      },
+      "is_subscription_query": false,
+      "category_mapping_note": "cabs mapped to transport",
+      "unmatched_term": null
+    },
+    "expected_answer_contains": [
+      1.0,
+      12934.34,
+      8.0,
+      2026.0,
+      11.0,
+      2000.0
+    ],
+    "expected_category_mapping_note": "cabs mapped to transport",
+    "expected_unmatched_term": null
   }
 ]

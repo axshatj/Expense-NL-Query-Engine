@@ -6,7 +6,8 @@ import re
 import json
 import logging
 from typing import Dict, Any, List, Optional
-from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, LLM_MODEL
+from src.config import OPENAI_API_KEY, LLM_MODEL
+from src.query_engine.llm_client import get_llm_client, call_llm_with_retry
 from src.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -92,56 +93,70 @@ def generate_templated_fallback(query_result: Dict[str, Any], question: str) -> 
             "I am an expense tracking assistant. I can only answer questions related to your personal transactions."
         )
 
+    if status == "no_match":
+        return query_result.get(
+            "message",
+            "No matching categories or merchants were found in your transaction history."
+        )
+
     if intent == "compare":
         p_res = query_result.get("primary_period", {}).get("result", 0.0)
         c_res = query_result.get("compare_period", {}).get("result", 0.0)
         p_val = f"₹{p_res:,.2f}" if isinstance(p_res, (int, float)) else str(p_res)
         c_val = f"₹{c_res:,.2f}" if isinstance(c_res, (int, float)) else str(c_res)
-        return (
+        ans = (
             f"For the primary period, your total was {p_val}, "
             f"compared to {c_val} in the comparison period."
         )
 
-    if intent == "list":
+    elif intent == "list":
         rows = query_result.get("data", [])
         count = query_result.get("count", len(rows))
         if count == 0 or not rows:
-            return "No matching transactions were found for the requested period."
-        
-        tx_summaries = []
-        for r in rows[:5]: # Cap at top 5 for prose summary
-            merchant = r.get("merchant_normalized") or r.get("merchant_raw") or "Unknown Merchant"
-            amt = r.get("amount", 0.0)
-            dt = r.get("date", "")
-            tx_summaries.append(f"{dt}: {merchant} (₹{amt:,.2f})")
-            
-        summary_str = "; ".join(tx_summaries)
-        if count > 5:
-            return f"Found {count} transactions (showing top 5): {summary_str}."
-        return f"Found {count} transaction(s): {summary_str}."
+            ans = "No matching transactions were found for the requested period."
+        else:
+            tx_summaries = []
+            for r in rows[:5]: # Cap at top 5 for prose summary
+                merchant = r.get("merchant_normalized") or r.get("merchant_raw") or "Unknown Merchant"
+                amt = r.get("amount", 0.0)
+                dt = r.get("date", "")
+                tx_summaries.append(f"{dt}: {merchant} (₹{amt:,.2f})")
+                
+            summary_str = "; ".join(tx_summaries)
+            if count > 5:
+                ans = f"Found {count} transactions (showing top 5): {summary_str}."
+            else:
+                ans = f"Found {count} transaction(s): {summary_str}."
 
-    # Intent: aggregate or trend
-    data = query_result.get("data")
-    metric = query_result.get("metric", "sum")
+    else:
+        # Intent: aggregate or trend
+        data = query_result.get("data")
+        metric = query_result.get("metric", "sum")
 
-    if isinstance(data, list):
-        if not data:
-            return "No data found matching your query."
-        items = []
-        for row in data:
-            grp = [str(v) for k, v in row.items() if k != "result"]
-            res = row.get("result", 0.0)
-            grp_label = " / ".join(grp) if grp else "Total"
-            val_str = f"₹{res:,.2f}" if metric != "count" else str(int(res))
-            items.append(f"{grp_label}: {val_str}")
-        return "Breakdown: " + ", ".join(items) + "."
+        if isinstance(data, list):
+            if not data:
+                ans = "No data found matching your query."
+            else:
+                items = []
+                for row in data:
+                    grp = [str(v) for k, v in row.items() if k != "result"]
+                    res = row.get("result", 0.0)
+                    grp_label = " / ".join(grp) if grp else "Total"
+                    val_str = f"₹{res:,.2f}" if metric != "count" else str(int(res))
+                    items.append(f"{grp_label}: {val_str}")
+                ans = "Breakdown: " + ", ".join(items) + "."
+        else:
+            val = data if data is not None else 0.0
+            if metric == "count":
+                ans = f"Total count: {int(val)} matching transaction(s)."
+            else:
+                val_str = f"₹{val:,.2f}"
+                ans = f"Your total {metric} spending for the requested period was {val_str}."
 
-    val = data if data is not None else 0.0
-    if metric == "count":
-        return f"Total count: {int(val)} matching transaction(s)."
-    
-    val_str = f"₹{val:,.2f}"
-    return f"Your total {metric} spending for the requested period was {val_str}."
+    note = query_result.get("category_mapping_note")
+    if note:
+        ans = f"({note}) {ans}"
+    return ans
 
 
 def generate_grounded_answer(
@@ -154,7 +169,7 @@ def generate_grounded_answer(
     Uses LLM with Prompt 2 when API key is available, verifies correctness via regex,
     and falls back to deterministic templated response on any failure.
     """
-    if query_result.get("status") == "unrelated":
+    if query_result.get("status") in ("unrelated", "no_match"):
         return {
             "answer": query_result.get("message", "I am an expense tracking assistant."),
             "is_grounded": True,
@@ -173,16 +188,17 @@ def generate_grounded_answer(
         }
 
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=key_to_use, base_url=OPENAI_BASE_URL or None)
+        client = get_llm_client(key_to_use)
 
         prompt_template = load_prompt("prompt2_grounding.txt")
         formatted_prompt = prompt_template.format(
             query_result_json=json.dumps(query_result, indent=2),
-            original_question=question
+            original_question=question,
+            category_mapping_note=query_result.get("category_mapping_note") or "None"
         )
 
-        response = client.chat.completions.create(
+        response = call_llm_with_retry(
+            client,
             model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": formatted_prompt},

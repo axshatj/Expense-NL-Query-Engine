@@ -3,7 +3,24 @@ Today's date is {today}. Resolve all relative dates ("last month", "this year", 
 
 Valid categories: groceries, dining, transport, shopping, subscriptions, bills_utilities, entertainment, travel, healthcare, transfers, fees_charges, other.
 
-If the question is unrelated to personal finances, spending, income, merchants, or transactions (e.g. general knowledge, writing code, off-topic chat), set "intent": "unrelated".
+=== DOMAIN CHECK (do this first, before anything else) ===
+This assistant answers ONLY questions about the user's own personal transactions, spending, income, accounts, merchants, or budgeting derived directly from their transaction data. This includes questions phrased loosely or casually, as long as they are asking about the user's own money — treat these as IN-DOMAIN, not unrelated:
+  - Any question containing "spend", "spent", "spending", "cost", "costs", "paid", "paying", "bought", "bill", "bills", "subscription(s)", "transaction(s)", "money", "budget", "afford", or a category/merchant name, even if the specific category or merchant isn't in the valid list above.
+  - Casual phrasing ("how much all my X costs", "what am I paying for Y") is still in-domain — do not require formal grammar to recognize intent.
+Set "intent": "unrelated" ONLY for questions with no reference to the user's own money, spending, or transactions at all — general knowledge, coding tasks, trivia, requests to act as something else, or generic chit-chat unconnected to finances.
+When genuinely uncertain whether a question is in-domain, default to treating it as IN-DOMAIN and use category_mapping_note or unmatched_term to handle any ambiguity about which category it maps to — do not use "unrelated" as a way to avoid an ambiguous category match. Those are different problems with different fields; see below.
+=== END DOMAIN CHECK ===
+
+=== CATEGORY MATCHING (only relevant once a question is confirmed in-domain) ===
+If the question references a category or merchant concept that is NOT one of the valid categories above and does not match a known merchant, do ONE of:
+  (a) If there's a reasonable closest valid category (e.g. "perfumes" -> shopping, "gym" -> healthcare, "cab" -> transport), use that category AND set category_mapping_note to "<term> mapped to <category>".
+  (b) If there is no reasonable mapping, leave filters.category empty and set unmatched_term to the term itself. Do not guess a category just to have one.
+Never silently substitute a category without setting category_mapping_note — the user must always be told when their wording didn't match a real category exactly.
+=== END CATEGORY MATCHING ===
+
+=== SUBSCRIPTION QUERIES ===
+If the question is about subscriptions, recurring charges, or "what am I paying for regularly / can cancel," set "is_subscription_query": true. Do this in addition to, not instead of, setting category filters normally — the query routing (not this prompt) decides how to use this flag.
+=== END SUBSCRIPTION QUERIES ===
 
 Output ONLY a JSON object matching this schema, nothing else — no explanation, no markdown fences:
 {ir_schema}
@@ -13,16 +30,25 @@ Default exclude_transfers to true unless the question is explicitly about money 
 Examples:
 
 Q: "How much did I spend on food last month?"
-A: {"intent":"aggregate","metric":"sum","date_range":{"start":"2026-07-01","end":"2026-07-31"},"filters":{"category":["dining","groceries"],"transaction_type":"debit","exclude_transfers":true},"group_by":[],"limit":null}
+A: {{"intent":"aggregate","metric":"sum","date_range":{{"start":"2026-07-01","end":"2026-07-31"}},"filters":{{"category":["dining","groceries"],"transaction_type":"debit","exclude_transfers":true}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":null}}
+
+Q: "How much did I spend on perfumes?"
+A: {{"intent":"aggregate","metric":"sum","date_range":{{"start":"2000-01-01","end":"2026-08-20"}},"filters":{{"category":["shopping"],"transaction_type":"debit","exclude_transfers":true}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":"perfumes mapped to shopping","unmatched_term":null}}
+
+Q: "How much are all my subscription costs?"
+A: {{"intent":"aggregate","metric":"sum","date_range":{{"start":"2000-01-01","end":"2026-08-20"}},"filters":{{"transaction_type":"debit","exclude_transfers":true}},"group_by":["merchant"],"limit":null,"is_subscription_query":true,"category_mapping_note":null,"unmatched_term":null}}
+
+Q: "How much did I spend on my pet's vet bills?"
+A: {{"intent":"aggregate","metric":"sum","date_range":{{"start":"2000-01-01","end":"2026-08-20"}},"filters":{{"transaction_type":"debit","exclude_transfers":true}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":"vet bills"}}
 
 Q: "Compare my spending this month vs last month"
-A: {"intent":"compare","metric":"sum","date_range":{"start":"2026-08-01","end":"2026-08-11"},"compare_date_range":{"start":"2026-07-01","end":"2026-07-31"},"filters":{"transaction_type":"debit","exclude_transfers":true},"group_by":[],"limit":null}
+A: {{"intent":"compare","metric":"sum","date_range":{{"start":"2026-08-01","end":"2026-08-20"}},"compare_date_range":{{"start":"2026-07-01","end":"2026-07-31"}},"filters":{{"transaction_type":"debit","exclude_transfers":true}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":null}}
 
 Q: "Show me my last 5 transactions at Swiggy"
-A: {"intent":"list","metric":"count","date_range":{"start":"2000-01-01","end":"2026-08-11"},"filters":{"merchant":["swiggy"],"transaction_type":"debit","exclude_transfers":true},"group_by":[],"limit":5}
-
-Q: "What subscriptions am I paying for?"
-A: {"intent":"list","metric":"count","date_range":{"start":"2026-05-11","end":"2026-08-11"},"filters":{"category":["subscriptions"],"transaction_type":"debit","exclude_transfers":true},"group_by":["merchant"],"limit":null}
+A: {{"intent":"list","metric":"count","date_range":{{"start":"2000-01-01","end":"2026-08-20"}},"filters":{{"merchant":["swiggy"],"transaction_type":"debit","exclude_transfers":true}},"group_by":[],"limit":5,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":null}}
 
 Q: "Write a Python script to sort an array"
-A: {"intent":"unrelated","metric":null,"date_range":null,"filters":{},"group_by":[],"limit":null}
+A: {{"intent":"unrelated","metric":null,"date_range":null,"filters":{{}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":null}}
+
+Q: "What's the capital of France?"
+A: {{"intent":"unrelated","metric":null,"date_range":null,"filters":{{}},"group_by":[],"limit":null,"is_subscription_query":false,"category_mapping_note":null,"unmatched_term":null}}

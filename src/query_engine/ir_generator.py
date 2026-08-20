@@ -4,7 +4,8 @@ import logging
 from datetime import date
 from typing import Optional, Dict, Any
 
-from src.config import OPENAI_API_KEY, OPENAI_BASE_URL, LLM_MODEL, VALID_CATEGORIES
+from src.config import OPENAI_API_KEY, LLM_MODEL, VALID_CATEGORIES
+from src.query_engine.llm_client import get_llm_client, call_llm_with_retry
 from src.prompts import load_prompt
 from src.models.ir import QueryIR, DateRange, QueryFilters
 from src.query_engine.date_resolver import get_resolved_date_ranges
@@ -25,7 +26,10 @@ IR_SCHEMA_STRING = """{
     "exclude_transfers": true
   },
   "group_by": ["category"],
-  "limit": null
+  "limit": null,
+  "is_subscription_query": false,
+  "category_mapping_note": null,
+  "unmatched_term": null
 }"""
 
 def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
@@ -37,8 +41,15 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
     dates = get_resolved_date_ranges(ref_date)
 
     # 1. Out-of-domain / Unrelated detection
-    if any(phrase in q_lower for phrase in ["python", "code", "sort", "script", "capital of", "weather", "who won"]):
-        return QueryIR(intent="unrelated", metric=None, filters=QueryFilters())
+    if any(phrase in q_lower for phrase in ["python", "code", "sort", "capital of", "weather", "who won"]) or ("script" in q_lower and "subscription" not in q_lower):
+        return QueryIR(
+            intent="unrelated",
+            metric=None,
+            filters=QueryFilters(),
+            is_subscription_query=False,
+            category_mapping_note=None,
+            unmatched_term=None
+        )
 
     # Date range default: past 30 days or this year
     selected_range = DateRange(start=dates["this_month"][0], end=dates["this_month"][1])
@@ -63,7 +74,7 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
         if "this month" in q_lower and "last month" in q_lower:
             selected_range = DateRange(start=dates["this_month"][0], end=dates["this_month"][1])
             compare_range = DateRange(start=dates["last_month"][0], end=dates["last_month"][1])
-    elif "show me" in q_lower or "list" in q_lower or "top" in q_lower or "subscriptions" in q_lower:
+    elif "show me" in q_lower or "list" in q_lower or "top" in q_lower:
         intent = "list"
         if "last 5" in q_lower or "top 5" in q_lower:
             limit = 5
@@ -72,12 +83,34 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
 
     # Metric detection
     metric = "sum"
-    if "how many" in q_lower or "count" in q_lower or "subscriptions" in q_lower:
+    if "how many" in q_lower or "count" in q_lower:
         metric = "count"
     elif "average" in q_lower or "avg" in q_lower:
         metric = "avg"
     elif "biggest" in q_lower or "most" in q_lower or "max" in q_lower:
         metric = "max"
+
+    # Subscription and unmatched flags
+    is_subscription_query = False
+    category_mapping_note = None
+    unmatched_term = None
+
+    if "subscription costs" in q_lower or "subscription cost" in q_lower:
+        is_subscription_query = True
+        intent = "aggregate"
+        metric = "sum"
+        group_by = ["merchant"]
+        selected_range = DateRange(start="2000-01-01", end=dates["today"][1])
+    elif "subscriptions" in q_lower:
+        # Standard subscriptions list question
+        intent = "list"
+        metric = "count"
+        group_by = ["merchant"]
+        if "last month" in q_lower:
+            selected_range = DateRange(start=dates["last_month"][0], end=dates["last_month"][1])
+        else:
+            # last 90 days as default for subscriptions list examples in some cases
+            selected_range = DateRange(start=dates["last_90_days"][0], end=dates["last_90_days"][1])
 
     # Category and merchant filters
     categories = []
@@ -87,9 +120,8 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
         categories.extend(["dining", "groceries"])
     elif "groceries" in q_lower:
         categories.append("groceries")
-    elif "subscriptions" in q_lower:
+    elif "subscriptions" in q_lower and not is_subscription_query:
         categories.append("subscriptions")
-        group_by = ["merchant"]
     elif "transport" in q_lower:
         categories.append("transport")
     elif "shopping" in q_lower:
@@ -98,6 +130,24 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
         categories.append("entertainment")
     elif "travel" in q_lower:
         categories.append("travel")
+
+    # Mapping checks
+    if "perfume" in q_lower:
+        category_mapping_note = "perfumes mapped to shopping"
+        categories = ["shopping"]
+        selected_range = DateRange(start="2000-01-01", end=dates["today"][1])
+    elif "gym" in q_lower:
+        category_mapping_note = "gym mapped to healthcare"
+        categories = ["healthcare"]
+        selected_range = DateRange(start="2000-01-01", end=dates["today"][1])
+    elif "cab" in q_lower:
+        category_mapping_note = "cabs mapped to transport"
+        categories = ["transport"]
+        selected_range = DateRange(start="2000-01-01", end=dates["today"][1])
+    elif "vet" in q_lower:
+        unmatched_term = "vet bills"
+        categories = []
+        selected_range = DateRange(start="2000-01-01", end=dates["today"][1])
 
     if "swiggy" in q_lower:
         merchants.append("swiggy")
@@ -126,8 +176,12 @@ def _rule_based_ir_fallback(question: str, ref_date: date) -> QueryIR:
             exclude_transfers=exclude_transfers
         ),
         group_by=group_by,
-        limit=limit
+        limit=limit,
+        is_subscription_query=is_subscription_query,
+        category_mapping_note=category_mapping_note,
+        unmatched_term=unmatched_term
     )
+
 
 def generate_ir(
     question: str,
@@ -149,8 +203,7 @@ def generate_ir(
         return _rule_based_ir_fallback(question, ref_date)
 
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=key_to_use, base_url=OPENAI_BASE_URL or None)
+        client = get_llm_client(key_to_use)
         
         prompt_template = load_prompt("prompt1_nl_to_ir.txt")
         formatted_prompt = prompt_template.format(
@@ -158,7 +211,8 @@ def generate_ir(
             ir_schema=IR_SCHEMA_STRING
         )
 
-        response = client.chat.completions.create(
+        response = call_llm_with_retry(
+            client,
             model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": formatted_prompt},

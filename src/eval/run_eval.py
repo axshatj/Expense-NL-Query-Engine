@@ -76,6 +76,33 @@ def evaluate_numeric_match(answer: str, expected_numbers: List[float], is_unrela
     return False
 
 
+def evaluate_question_fidelity(
+    answer: str,
+    expected_mapping: Optional[str],
+    expected_unmatched: Optional[str]
+) -> bool:
+    """
+    Checks if the answer correctly handles category-mapping disclosure
+    or unmatched term refusal.
+    """
+    answer_lower = answer.lower()
+    
+    if expected_mapping:
+        try:
+            term, category = expected_mapping.split(" mapped to ")
+            return term.lower() in answer_lower and category.lower() in answer_lower
+        except Exception:
+            return expected_mapping.lower() in answer_lower
+
+    if expected_unmatched:
+        return (
+            "categorized under" in answer_lower
+            and expected_unmatched.lower() in answer_lower
+        )
+        
+    return True
+
+
 def run_evaluation(
     ref_date: Optional[date] = None,
     db_path: Optional[str] = None,
@@ -95,6 +122,8 @@ def run_evaluation(
     total_ir_checked = 0
     numeric_correct_count = 0
     fallback_count = 0
+    fidelity_questions_count = 0
+    fidelity_correct_count = 0
     total_questions = len(benchmark_items)
 
     detailed_results = []
@@ -108,6 +137,8 @@ def run_evaluation(
         question = item["question"]
         expected_ir = item.get("expected_ir", {})
         expected_numbers = item.get("expected_answer_contains", [])
+        expected_mapping = item.get("expected_category_mapping_note")
+        expected_unmatched = item.get("expected_unmatched_term")
         is_unrelated = expected_ir.get("intent") == "unrelated"
 
         res = answer_question(question, ref_date=ref_date, api_key=api_key, db_path=db_path)
@@ -130,7 +161,16 @@ def run_evaluation(
         if fallback:
             fallback_count += 1
 
-        status_str = "PASS" if (ir_pct == 100 and num_ok) else "FAIL"
+        # 4. Question Fidelity Match
+        is_fidelity_q = bool(expected_mapping or expected_unmatched)
+        fidelity_ok = True
+        if is_fidelity_q:
+            fidelity_questions_count += 1
+            fidelity_ok = evaluate_question_fidelity(answer, expected_mapping, expected_unmatched)
+            if fidelity_ok:
+                fidelity_correct_count += 1
+
+        status_str = "PASS" if (ir_pct == 100 and num_ok and (not is_fidelity_q or fidelity_ok)) else "FAIL"
         clean_q = clean_text(question)
         clean_ans = clean_text(answer)
         
@@ -138,6 +178,8 @@ def run_evaluation(
         print(f"     IR Accuracy: {ir_pct:.0f}% ({matched}/{checked} fields)")
         print(f"     Answer: \"{clean_ans[:80]}...\"" if len(clean_ans) > 80 else f"     Answer: \"{clean_ans}\"")
         print(f"     Numeric Grounding: {'PASS' if num_ok else 'FAIL'} | Fallback Used: {fallback}")
+        if is_fidelity_q:
+            print(f"     Question Fidelity: {'PASS' if fidelity_ok else 'FAIL'}")
         print()
 
         detailed_results.append({
@@ -146,18 +188,21 @@ def run_evaluation(
             "ir_accuracy_pct": ir_pct,
             "numeric_ok": num_ok,
             "fallback_used": fallback,
+            "fidelity_ok": fidelity_ok if is_fidelity_q else None,
             "answer": answer
         })
 
     ir_field_accuracy = (total_ir_matched / total_ir_checked * 100) if total_ir_checked > 0 else 0.0
     numeric_accuracy = (numeric_correct_count / total_questions * 100) if total_questions > 0 else 0.0
     hallucination_fallback_rate = (fallback_count / total_questions * 100) if total_questions > 0 else 0.0
+    question_fidelity_rate = (fidelity_correct_count / fidelity_questions_count * 100) if fidelity_questions_count > 0 else 100.0
 
     summary = {
         "total_questions": total_questions,
         "ir_field_accuracy_pct": round(ir_field_accuracy, 2),
         "numeric_accuracy_pct": round(numeric_accuracy, 2),
         "hallucination_fallback_rate_pct": round(hallucination_fallback_rate, 2),
+        "question_fidelity_rate_pct": round(question_fidelity_rate, 2),
         "detailed_results": detailed_results
     }
 
@@ -167,9 +212,11 @@ def run_evaluation(
     print(f" 1. IR Field Accuracy:        {ir_field_accuracy:.2f}%")
     print(f" 2. Numeric Accuracy:         {numeric_accuracy:.2f}%")
     print(f" 3. Hallucination/Fallback:   {hallucination_fallback_rate:.2f}%")
+    print(f" 4. Question Fidelity Rate:   {question_fidelity_rate:.2f}%")
     print(f"=======================================================\n")
 
     return summary
+
 
 
 if __name__ == "__main__":

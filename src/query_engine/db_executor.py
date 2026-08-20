@@ -15,6 +15,13 @@ OUT_OF_DOMAIN_MESSAGE = (
     "personal transactions, spending, and accounts."
 )
 
+NO_MATCH_MESSAGE = (
+    "I don't have any transactions categorized under '{term}' in your data. "
+    "I can look at groceries, dining, transport, shopping, subscriptions, "
+    "bills & utilities, entertainment, travel, healthcare, or fees — want to "
+    "try one of those, or check a specific merchant name?"
+)
+
 
 def execute_ir(
     ir: QueryIR,
@@ -30,7 +37,19 @@ def execute_ir(
         return {
             "status": "unrelated",
             "message": OUT_OF_DOMAIN_MESSAGE,
-            "data": None
+            "data": None,
+            "category_mapping_note": ir.category_mapping_note,
+            "unmatched_term": ir.unmatched_term
+        }
+
+    if ir.unmatched_term:
+        logger.info(f"Query contains unmatched term '{ir.unmatched_term}'. Routing to no-match message.")
+        return {
+            "status": "no_match",
+            "message": NO_MATCH_MESSAGE.format(term=ir.unmatched_term),
+            "data": None,
+            "category_mapping_note": ir.category_mapping_note,
+            "unmatched_term": ir.unmatched_term
         }
 
     logger.info(f"Executing QueryIR: intent='{ir.intent}', metric='{ir.metric}', group_by={ir.group_by}")
@@ -69,7 +88,9 @@ def execute_ir(
                 "date_range": ir.compare_date_range.model_dump() if ir.compare_date_range else None,
                 "result": compare_res,
                 "sql": compare_sql
-            }
+            },
+            "category_mapping_note": ir.category_mapping_note,
+            "unmatched_term": ir.unmatched_term
         }
 
     sql, params = query_obj
@@ -83,7 +104,9 @@ def execute_ir(
             "intent": "list",
             "count": len(rows),
             "data": rows,
-            "query_sql": sql
+            "query_sql": sql,
+            "category_mapping_note": ir.category_mapping_note,
+            "unmatched_term": ir.unmatched_term
         }
 
     # Aggregate or Trend
@@ -106,5 +129,8 @@ def execute_ir(
         "metric": ir.metric,
         "date_range": ir.date_range.model_dump() if ir.date_range else None,
         "data": data,
-        "query_sql": sql
+        "query_sql": sql,
+        "category_mapping_note": ir.category_mapping_note,
+        "unmatched_term": ir.unmatched_term
     }
+

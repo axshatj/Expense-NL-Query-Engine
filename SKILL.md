@@ -19,7 +19,9 @@ Four decisions shape everything else here, and they're the ones worth being able
 
 3. **The LLM never invents numbers.** The answer-generation step is only ever shown the actual rows/aggregate that came back from the database, is instructed to use only those, and a cheap post-hoc check re-extracts every number in the generated answer and confirms it appears in the retrieved data. If it doesn't, the answer is rejected and rebuilt from a template instead. This single guardrail is what makes the project trustworthy enough to actually use with real money data.
 
-4. **There's an eval set from early on, not bolted on at the end.** A ~20-question benchmark with known-correct answers (computed by running the equivalent query directly against the DB) is what turns "I built an AI expense assistant" into "I built an AI expense assistant that's 90%+ accurate on a 20-query benchmark" — the second one is the resume line and the interview story.
+4. **There's an eval set from early on, not bolted on at the end.** A ~24-question benchmark with known-correct answers (computed by running the equivalent query directly against the DB) is what turns "I built an AI expense assistant" into "I built an AI expense assistant that's 90%+ accurate on a 24-query benchmark" — the second one is the resume line and the interview story.
+
+5. **Off-topic refusal and category-mapping transparency are two separate guardrails, not one.** Early testing surfaced a real bug where in-domain questions ("how much did I spend on perfumes?", "how much are all my subscription costs?") returned wrong numbers — not refusals. It was tempting to "fix" this by tightening the off-topic refusal, which would have been the wrong fix entirely: those questions were never off-topic. The actual bug was that the model was forced to always guess a category from the fixed taxonomy with no way to say "this doesn't map cleanly" or "let me tell you I mapped this." The fix added two explicit escape hatches (`category_mapping_note` for a disclosed best-guess mapping, `unmatched_term` for admitting no confident match) instead of one silent forced guess — see `nl-query-and-grounding.md` for the full writeup, since this is exactly the kind of failure mode worth being able to explain precisely in an interview: numeric grounding and question fidelity are different properties, and a system can have one without the other.
 
 ## Architecture at a glance
 
@@ -33,16 +35,16 @@ AA / Setu sandbox ─────┘
                                           │
                                           ▼
                        [1] NL → structured query IR      (LLM call #1 — see nl-query-and-grounding.md)
-                                          │
+                                          │            (includes domain check + category-mapping/unmatched-term handling)
                                           ▼
                        [2] IR → parameterized DB query   (plain code, no LLM — see architecture-and-schema.md)
-                                          │
+                                          │            (or subscription recurrence query, or refusal/no-match short-circuit)
                                           ▼
                        [3] Query result (rows / aggregate)
                                           │
                                           ▼
                        [4] Result → grounded NL answer   (LLM call #2 + numeric verification — see nl-query-and-grounding.md)
-                                          │
+                                          │            (discloses category mapping when one was made)
                                           ▼
                        Answer shown to user
 ```
@@ -55,10 +57,10 @@ Only [1] and [4] touch an LLM. [A] and [2] are deterministic, ordinary code — 
 |---|---|
 | Building SMS parsing and AA/Setu integration from zero, sandbox setup, what to scope out | `references/ingestion.md` |
 | DB schema, merchant/category normalization, connecting ingestion output to the query layer | `references/architecture-and-schema.md` |
-| The structured query IR schema, both prompt templates (with few-shot examples), the anti-hallucination check, ambiguous-date/merchant handling | `references/nl-query-and-grounding.md` |
-| Eval harness design, the 3 metrics, a ready-to-use 20-question starter benchmark | `references/evaluation.md` |
+| The structured query IR schema, both prompt templates (with few-shot examples), the anti-hallucination check, the domain-refusal guardrail, category-mapping/unmatched-term handling, ambiguous-date/merchant handling | `references/nl-query-and-grounding.md` |
+| Eval harness design, the 4 metrics, a ready-to-use 24-question starter benchmark (includes regression tests for the category-mapping bug) | `references/evaluation.md` |
 | Tech stack rationale, week-by-week build order (ingestion included), resume bullet templates, likely interview questions | `references/build-plan-and-resume.md` |
-| Step-by-step implementation tasks in topological dependency order and progress tracker | `references/process-roadmap.md` |
+| What real production integration would require beyond the sandbox/synthetic setup — Setu product selection, FIU registration path, compliance, cost | `references/real-data-migration.md` |
 
 ## Assumptions baked into this design
 

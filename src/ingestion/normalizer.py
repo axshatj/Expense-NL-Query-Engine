@@ -3,7 +3,8 @@ import json
 import logging
 from typing import Tuple, List, Dict, Any, Optional
 import sqlite3
-from src.config import VALID_CATEGORIES, DATABASE_PATH, OPENAI_API_KEY, OPENAI_BASE_URL, LLM_MODEL
+from src.config import VALID_CATEGORIES, DATABASE_PATH, OPENAI_API_KEY, LLM_MODEL
+from src.query_engine.llm_client import get_llm_client, call_llm_with_retry
 from src.db.connection import execute_query, execute_statement, execute_many, get_db_connection
 
 logger = logging.getLogger(__name__)
@@ -130,8 +131,7 @@ def batch_normalize_unmapped_merchants(
     if OPENAI_API_KEY:
         try:
             logger.info("Using LLM batch normalization for unknown merchants...")
-            from openai import OpenAI
-            client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL or None)
+            client = get_llm_client()
             
             prompt = f"""
 Given the following list of raw merchant strings from SMS/bank statements:
@@ -142,7 +142,8 @@ Valid categories: {json.dumps(VALID_CATEGORIES)}
 For each raw merchant string, provide a clean normalized merchant name and assign the single best category.
 Output ONLY a JSON object mapping each raw string to {{"normalized_name": "...", "category": "..."}}:
 """
-            response = client.chat.completions.create(
+            response = call_llm_with_retry(
+                client,
                 model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,

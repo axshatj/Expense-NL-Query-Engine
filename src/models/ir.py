@@ -21,3 +21,7 @@ class QueryIR(BaseModel):
     filters: QueryFilters = Field(default_factory=QueryFilters)
     group_by: List[str] = Field(default_factory=list)
     limit: Optional[int] = None
+    is_subscription_query: bool = False
+    category_mapping_note: Optional[str] = None
+    unmatched_term: Optional[str] = None
+

@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List, Tuple
 import sqlite3
 
 from src.config import OPENAI_API_KEY, LLM_MODEL
+from src.query_engine.llm_client import get_llm_client, call_llm_with_retry
 from src.ingestion.normalizer import normalize_merchant_and_category, seed_default_aliases
 from src.db.connection import execute_statement, execute_many
 
@@ -192,8 +193,7 @@ def parse_unparsed_sms_with_llm(
         
     logger.info(f"Attempting LLM fallback parsing on {len(unparsed_texts)} unparsed SMS messages.")
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        client = get_llm_client()
         
         prompt = f"""
 Extract transaction details from the following unparsed SMS messages.
@@ -211,7 +211,8 @@ Output ONLY a JSON array of objects:
 ]
 If a message is not a transaction, omit it.
 """
-        response = client.chat.completions.create(
+        response = call_llm_with_retry(
+            client,
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,

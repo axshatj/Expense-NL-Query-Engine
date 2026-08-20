@@ -29,6 +29,12 @@ This document tracks the step-by-step implementation of the **Expense NL Query E
                            │
                            ▼
                   [Phase 11: Real Data Swap & Validation]
+                           │
+                           ▼
+                  [Phase 12: Domain-Fidelity Guardrail Fix]
+                           │
+                           ▼
+                  [Phase 13: Production Data Migration] (future, not yet started)
 ```
 
 ---
@@ -150,3 +156,34 @@ This document tracks the step-by-step implementation of the **Expense NL Query E
 - [x] **Task 11.2**: Recompute ground-truth values against real database snapshot.
 - [x] **Task 11.3**: Run full evaluation suite on real data, tune merchant aliases and regex rules.
 - [x] **Task 11.4**: Finalize project README and log final benchmark metrics.
+
+---
+
+## Phase 12: Domain-Fidelity Guardrail Fix
+> **Prerequisites:** Phase 11
+> **Goal:** Fix the real bug found in testing where in-domain questions referencing non-taxonomy terms ("perfumes", "subscription costs") returned wrong numbers instead of a disclosed mapping or a no-match response. This is a distinct guardrail from off-topic refusal — see `references/nl-query-and-grounding.md` for the two-guardrail explanation. Not yet implemented; tasks below are the concrete build steps.
+
+- [x] **Task 12.1**: Extend the IR schema (`src/models/ir.py`) with `is_subscription_query`, `category_mapping_note`, and `unmatched_term` fields.
+- [x] **Task 12.2**: Rewrite Prompt 1 (`src/prompts/prompt1_nl_to_ir.txt`) per the hardened version in `references/nl-query-and-grounding.md` — explicit domain-check section, explicit category-matching section with map-and-disclose vs. admit-no-match logic, explicit subscription-query flagging, and a rebalanced few-shot set (previously 4 in-domain examples to 1 off-topic example, now covering all IR behaviors evenly).
+- [x] **Task 12.3**: Implement `build_subscription_query()` in `src/query_engine/sql_builder.py` — recurrence-detection query (same merchant + amount tolerance across ≥2 consecutive months) used whenever `is_subscription_query` is true, replacing the plain `category = 'subscriptions'` filter that was silently undercounting mistagged recurring transactions.
+- [x] **Task 12.4**: Update the router (`src/query_engine/pipeline.py`) to handle three branches: off-topic refusal (`intent == "unrelated"`), no-match response (`unmatched_term` set), and normal/subscription query execution — currently only two branches exist.
+- [x] **Task 12.5**: Update Prompt 2 (`src/prompts/prompt2_grounding.txt`) to require explicit disclosure of `category_mapping_note` in the generated answer text, and update the templated fallback answer to prepend the same disclosure when `verify_grounded` fails.
+- [x] **Task 12.6**: Add the two real bug-repro questions plus 3 additional mapping/unmatched-term cases to `src/eval/benchmark.json` (see `references/evaluation.md` for the full list and the new 4th metric, question-fidelity rate).
+- [x] **Task 12.7**: Recompute ground truth for the subscription-cost benchmark question using the recurrence-detection query specifically — not the old category filter, since that would validate the bug rather than catch it.
+- [x] **Task 12.8**: Re-run the full eval suite; confirm the two bug-repro questions now pass question-fidelity in addition to IR accuracy and grounding fidelity.
+
+---
+
+## Phase 13: Production Data Migration (Future — Not Yet Started)
+> **Prerequisites:** Phase 12
+> **Goal:** Move from synthetic/sandbox data to real production AA data. This phase is deliberately not scheduled — see `references/real-data-migration.md` for the full plan and the open decisions (personal-only vs. multi-user, budget, timeline) that need to be made before any of this is scoped into actual dates.
+
+- [ ] **Task 13.1**: Confirm target Setu product is Account Aggregator (AA), not BBPS — verify current sandbox/API credentials are provisioned for the correct product before building further (see `references/real-data-migration.md` for why this distinction matters).
+- [ ] **Task 13.2**: Decide scope — personal-only real data vs. multi-user support — since this determines whether Setu's business onboarding is sufficient or a heavier FIU registration path is required.
+- [ ] **Task 13.3**: Complete Setu business/KYC onboarding for production AA access (or equivalent path decided in 13.2).
+- [ ] **Task 13.4**: Set up real-data security hygiene before any real data is ingested: encrypt `transactions` table at rest, ensure `.gitignore` excludes any real-data directory and credentials, confirm no real financial data or consent handles are ever committed to the public repo.
+- [ ] **Task 13.5**: Test the real (non-sandbox) AA consent flow against at least one real bank account.
+- [ ] **Task 13.6**: Expand SMS parser sender coverage against a real phone's message export; tune the promotional/OTP denylist against real inbox noise.
+- [ ] **Task 13.7**: Re-run full eval suite against real production data; expect and budget time for new `merchant_aliases` entries and category-mapping cases that synthetic/sandbox data didn't surface.
+- [ ] **Task 13.8**: Define and document a data-retention/deletion story (consent revocation, data purge) before this phase is considered complete.
+
